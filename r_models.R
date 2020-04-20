@@ -923,3 +923,13 @@ plot(final)
 # residuals vs. fitted does not look good and
 # from QQ plot see that the data (deaths) is over-dispersed (lots of extreme values at both high and low end of deaths)
 # http://www.ucd.ie/ecomodel/Resources/QQplots_WebVersion.html
+
+ggplot() + geom_density(data=compare[compare$pred < 9000,], aes(pred)) + 
+  geom_density(data=abbrev[abbrev$deaths < 9000, ], aes(deaths, colour="red")) 
+
+compare["pred2"] = pred
+compare[compare$pred2 < 0, "pred2"] = 0
+summary(compare$pred2)
+
+ggplot() + geom_density(data=compare[compare$pred < 9000,], aes(pred2)) + 
+  geom_density(data=abbrev[abbrev$deaths < 9000, ], aes(deaths, colour="red")) 
