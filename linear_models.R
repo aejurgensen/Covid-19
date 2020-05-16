@@ -25,7 +25,7 @@ lm <- lm(death_prc ~ household_size + density + empl_agriculture +
            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines, 
          data=df)
-summary(lm)
+summary(lm) # adj. R2 = 0.9297
 plot(lm)
 # heteroskedastic? definitely leverage issue
 
@@ -41,127 +41,123 @@ lm2 <- lm(death_prc ~ household_size + density + empl_agriculture +
            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines, 
          data=df2)
-summary(lm2)
+summary(lm2) # adj.r2 = 0.927
 plot(lm2)
 
-
-library(boot)
-library(MASS)
-
-#quasipoisson without log-transformed select predictors
-mod = glm(formula = deaths ~ household_size + empl_agriculture + empl_professional + empl_social + 
-            empl_services + empl_manufacturing + empl_retail + empl_transp_utilities + 
-            prc_fam_poverty + avg_income + prc_public_transp + population + pop_65_plus + uninsured +
-            area + incarcerated + domestic_passengers + intl_passengers + prc_obese + ten_plus + 
-            order + density, family = quasipoisson, data = low)
-cv_glm <- cv.glm(low, mod, K = 10)
-print(cv_glm$delta)
-glm.diag.plots(mod, glm.diag(mod))
-print(summary(mod))
-plot(mod)
-
-mod = glm(formula = deaths ~ household_size + empl_agriculture + empl_professional + empl_social + 
-            empl_services + empl_manufacturing + empl_retail + empl_transp_utilities + 
-            prc_fam_poverty + avg_income + prc_public_transp + population + pop_65_plus + uninsured +
-            area + incarcerated + domestic_passengers + intl_passengers + prc_obese + ten_plus + 
-            order + density, family = quasipoisson, data = high)
-cv_glm <- cv.glm(high, mod, K = 10)
-print(cv_glm$delta)
-glm.diag.plots(mod, glm.diag(mod))
-print(summary(mod))
-plot(mod)
+# remove non-significant variables one by one
+lm2 <- lm(death_prc ~ household_size + density + empl_agriculture +
+            empl_professional + empl_social + empl_services + empl_manufacturing +
+            empl_retail + prc_public_transp + ten_plus + order + 
+            uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population + 
+            intl_passengers + domestic_passengers + cases_prc, prc_incarcerated +
+            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
+            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines, 
+          data=df2)
+summary(lm2) # adj.r2 = 0.927
+plot(lm2)
+# leverage problem eliminated
 
 
-mod = glm(formula = deaths ~ household_size + prc_fam_poverty + 
-            prc_public_transp + population + pop_65_plus + uninsured +
-            area + domestic_passengers + intl_passengers + prc_obese + ten_plus + 
-            order + density, family = quasipoisson, data = high)
-cv_glm <- cv.glm(high, mod, K = 10)
-print(cv_glm$delta)
-glm.diag.plots(mod, glm.diag(mod))
-print(summary(mod))
-plot(mod)
+step <- step(lm2, direction=c("backward"))
+summary(step)
+
+stepped <- lm(death_prc ~ household_size + density + empl_agriculture + empl_professional +
+                empl_social + empl_services + empl_manufacturing + empl_retail + prc_public_transp + 
+                ten_plus + order + uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population +
+                intl_passengers + domestic_passengers + cases_prc, data=df2)
+summary(stepped)
+plot(stepped) # adj. r2 = 0.7813
+# more heteroskedastic that lm2?
+
+# reduce to only significant variables
+stepped <- lm(death_prc ~ density + empl_professional +
+                empl_services + prc_public_transp + 
+                order + pop_65_plus +
+                cases_prc, data=df2)
+summary(stepped) # adj. R2 == 0.7828
+plot(stepped)
+# at least no leverage issues (barely)
 
 
-# high dispersion since dispersion parameter 
-# https://cran.r-project.org/web/packages/pscl/vignettes/countreg.pdf
+# add interaction terms
+lm3 <- lm(death_prc ~ household_size + density + empl_agriculture +
+            empl_professional + empl_social + empl_services + empl_manufacturing +
+            empl_retail + prc_public_transp + order + 
+            uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population + 
+            intl_passengers + domestic_passengers + prc_incarcerated +
+            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
+            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines + 
+            (cases_prc + ten_plus)^2, 
+          data=df2)
+summary(lm3) # adj R2 = 0.8052
+plot(lm3)
 
-#actually respects assumption of linearity for poisson??
-# https://bookdown.org/egarpor/PM-UC3M/glm-diagnostics.html
+lm3 <- lm(death_prc ~ (household_size + density + empl_agriculture +
+            empl_professional + empl_social + empl_services + empl_manufacturing +
+            empl_retail + prc_public_transp + order + 
+            uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population + 
+            intl_passengers + domestic_passengers + prc_incarcerated +
+            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
+            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines + 
+            cases_prc + ten_plus)^2, 
+          data=df2)
+summary(lm3) # adj R2 = 0.9017
+plot(lm3)
 
+step2 <- step(lm3, direction=c("backward"))
+summary(step2) #adj r2 = 0.9276 # an increase in adjusted R@, but SO MANY variables. will opt for nearly as good, but more parsimonious model?
+plot(step2)
+coef(summary(step2))
 
-
-## try GAM
-library(mgcv)
-
-#without smoothing
-gam1 <- gam(deaths ~ household_size + prc_fam_poverty +  prc_public_transp + 
-              population + pop_65_plus + uninsured + domestic_passengers + 
-              intl_passengers + prc_obese + ten_plus + order + density, data=high)
-gam.check(gam1)
-summary(gam1)
-
-# with smoothing
-# https://statistique.cuso.ch/fileadmin/statistique/part-3.pdf
-gam2 <- gam(deaths ~ s(household_size) + s(prc_fam_poverty) +  s(prc_public_transp) + 
-              s(population) + s(pop_65_plus) + s(uninsured) + 
-              s(domestic_passengers) + s(intl_passengers) + s(prc_obese) + 
-              s(ten_plus) + s(order) + s(density), data=high)
-gam.check(gam2)
-summary(gam2)
-
-gam3 <- gam(deaths ~ s(household_size) + s(prc_fam_poverty) +  s(prc_public_transp) + 
-              s(population) + s(pop_65_plus) + s(uninsured) + 
-              s(domestic_passengers) + s(intl_passengers) + s(prc_obese) + 
-              s(ten_plus) + s(order) + s(density), data=high, family=poisson)
-gam.check(gam3)
-summary(gam3)
-anova.gam(gam3)
-
-
-
-
-# glm vs gam http://ecology.msu.montana.edu/labdsv/R/labs/lab5/lab5.html
-
-# https://m-clark.github.io/generalized-additive-models/technical.html
-anova(gam5a)
-AIC(gam1, gam4, gam5a)
-df$pred <- predict(gam5a, df)
-summary(df[c("deaths", "pred")])
-
-gam0 <- gam(deaths ~ s(household_size, k=4) + s(empl_agriculture, k=3) + s(empl_professional, k=3) + s(empl_social, k=3) + s(prc_fam_poverty, k=3) + 
-              s(empl_services, k=3) + s(empl_manufacturing, k=3) + s(empl_retail, k=11) + s(empl_transp_utilities, k=3) + 
-              s(avg_income, k=6) + s(prc_public_transp, k=3) + s(population, k=4) + s(pop_65_plus, k=3) +
-              s(uninsured, k=3) + s(incarcerated, k=3) + s(domestic_passengers, k=15) + s(intl_passengers, k=6) + 
-              s(prc_obese, k=3) + s(ten_plus, k=3) + s(order, k=19) + s(density, k=4) + ti(order, ten_plus) +
-              ti(order, density) + ti(order, population), 
-            data=df, family=gaussian, gamma=2, method = "GCV.Cp", select=TRUE)
-gam.check(gam0)
-summary(gam0)
-gam0
-
-gam0a <- gam(deaths ~ s(household_size, k=4) + s(empl_agriculture, k=3) + s(empl_professional, k=3) + s(empl_social, k=3) + s(prc_fam_poverty, k=3) + 
-               s(empl_services, k=3) + s(empl_manufacturing, k=3) + s(empl_retail, k=11) + s(empl_transp_utilities, k=3) + 
-               s(avg_income, k=6) + s(prc_public_transp, k=3) + s(population, k=4) + s(pop_65_plus, k=3) +
-               s(uninsured, k=3) + s(incarcerated, k=3) + s(domestic_passengers, k=15) + s(intl_passengers, k=6) + 
-               s(prc_obese, k=3) + s(ten_plus, k=3) + s(order, k=19) + s(density, k=4) + ti(order, ten_plus) +
-               ti(order, density) + ti(order, population), 
-             data=df2, family=gaussian, gamma=2, method = "GCV.Cp", select=TRUE)
-gam.check(gam0a)
-summary(gam0a)
-gam0a
+# because of the very large number of variables, iteratively dropped all with p-value >= 0.1 with each round
+# reduced to variables with p<0.1
+stepped2 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
+                 prc_incarcerated + nh_weighted_health_score + pop_65_plus + nh_overall_rating + ten_plus + household_size*cases_prc +
+                 density*empl_services + density*prc_obese + prc_public_transp*empl_professional +
+                 empl_professional*uninsured + nh_total_fines*empl_professional + immigrant*empl_social + latino*empl_social +
+                 nh_total_fines*empl_social + empl_services*empl_retail + prc_fam_poverty*empl_services +
+                 empl_manufacturing*population + empl_manufacturing*nh_num_beds + pop_65_plus*prc_public_transp +
+                 immigrant*prc_public_transp + prc_public_transp*aa + nh_nurse_hours*prc_public_transp + population*order +
+                 nh_num_beds*order + cases_prc*order + prc_fam_poverty*pop_65_plus + prc_fam_poverty*immigrant +
+                 prc_obese*population + nh_weighted_health_score*prc_obese + prc_obese*nh_num_beds + nh_total_fines*pop_65_plus +
+                 pop_65_plus*cases_prc + prc_incarcerated*population + cases_prc*population + intl_passengers*domestic_passengers +
+                 intl_passengers*prc_incarcerated + intl_passengers*latino + 
+                 intl_passengers*nh_nurse_hours + domestic_passengers*cases_prc + prc_incarcerated*aa + prc_incarcerated*cases_prc +
+                 immigrant*cases_prc + immigrant*ten_plus + latino*cases_prc + latino*ten_plus + cases_prc*nh_num_beds   -
+                 (nh_num_beds + household_size + empl_services + empl_retail + prc_obese + empl_agriculture + prc_public_transp +
+                    empl_professional + uninsured + empl_social + empl_manufacturing + population + aa + order +
+                    nh_prc_occupied + nh_nurse_hours), 
+               data=df2)
+coef(summary(stepped2))
+summary(stepped2) # adj R2 on 635 dof = 0.9243->adj. R2 on 668 dof->0.9224, adj.R2 on 693 dof->0.9214, 
+                  # adj.R2 on 701 dof: 0.8883, adjR2 on 724 dof->0.8707, adj.R2 on 739 dof->0.8688. 
+                  # adj.R2 on 753 dof->0.8688, adj.R2 on 762 def->0.866, adjR2 on 770 dof->0.8658
+                  # adj.R2 on 771 dof->0.8655, adjR2 on 772 dof->0.8652
+plot(stepped2)
+# leverage issue?
 
 
-gam0b <- gam(log_deaths ~ s(household_size, k=4) + s(empl_agriculture, k=10) + s(empl_professional, k=3) + s(empl_social, k=3) + s(prc_fam_poverty, k=10) + 
-               s(empl_services, k=10) + s(empl_manufacturing, k=3) + s(empl_retail, k=11) + s(empl_transp_utilities, k=3) + 
-               s(avg_income, k=10) + s(prc_public_transp, k=3) + s(population, k=4) + s(pop_65_plus, k=3) +
-               s(uninsured, k=3) + s(incarcerated, k=20) + s(domestic_passengers, k=20) + s(intl_passengers, k=10) + 
-               s(prc_obese, k=120) + s(ten_plus, k=15) + s(order, k=10) + s(density, k=4), #+ ti(order, ten_plus) +
-             #ti(order, density) + ti(order, population), 
-             data=df2, family=gaussian, gamma=2, method = "GCV.Cp", select=TRUE)
-gam.check(gam0b)
-summary(gam0b)
-gam0b
+#reduced further to all variables with p<0.05
+stepped3 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
+                 nh_weighted_health_score + pop_65_plus + ten_plus + household_size*cases_prc + density*empl_services + 
+                 density*prc_obese + prc_public_transp*empl_professional + empl_professional*uninsured + 
+                 nh_total_fines*empl_professional + immigrant*empl_social + latino*empl_social + nh_total_fines*empl_social +
+                 empl_services*empl_retail + prc_fam_poverty*empl_services + empl_manufacturing*population + 
+                 empl_manufacturing*nh_num_beds + immigrant*prc_public_transp +
+                 prc_public_transp*aa + population*order + nh_num_beds*order + 
+                 cases_prc*order + prc_fam_poverty*pop_65_plus + prc_fam_poverty*immigrant + prc_obese*population +
+                 nh_weighted_health_score*prc_obese + prc_obese*nh_num_beds + nh_total_fines*pop_65_plus + 
+                 pop_65_plus*cases_prc + cases_prc*population + intl_passengers*domestic_passengers + 
+                 intl_passengers*prc_incarcerated + intl_passengers*latino + 
+                 domestic_passengers*cases_prc + prc_incarcerated*cases_prc + immigrant*cases_prc + immigrant*ten_plus + 
+                 latino*cases_prc + latino*ten_plus + cases_prc*nh_num_beds  -
+                 (nh_num_beds + household_size + empl_services + empl_retail + prc_obese + empl_agriculture + prc_public_transp +
+                    empl_professional + uninsured + empl_social + empl_manufacturing + population + aa + order +
+                    nh_prc_occupied + nh_nurse_hours + prc_incarcerated + nh_overall_rating + ten_plus), 
+               data=df2)
+summary(stepped3)  # Adj.R2 on 776 dof->0.8641, AdjR2 with 777 dof->0.8636, AdjR2 with 780 dof->0.8629
+plot(stepped3)
+# fit isn't any better, and also has leverage issues; NOT PARSIMONIOUS and difficult to interpret
 
 
 
