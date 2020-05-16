@@ -7,15 +7,6 @@ df <- df[, !(names(df) %in% c("X"))]
 summary(df)
 names(df)
 
-library(ggplot2)
-
-ggplot(data=df, aes(death_prc)) + geom_density()
-ggplot(data=df, aes(log( nh_nurse_hours))) + geom_density()
-ggplot(df, aes(cases_may11/population)) + geom_density()
-
-df["household_size", "population", "density", "cases_march24", "prc_public_transp",
-   "ten_plus", "order", "uninsured", "prc_family_poverty", "prc_obese", "pop_65_plus", 
-   "incarcerated", "intl_passengers", "domestic_passengers", "death_prc_1K"]
 
 lm <- lm(death_prc ~ household_size + density + empl_agriculture +
            empl_professional + empl_social + empl_services + empl_manufacturing +
@@ -37,46 +28,21 @@ lm2 <- lm(death_prc ~ household_size + density + empl_agriculture +
            empl_professional + empl_social + empl_services + empl_manufacturing +
            empl_retail + empl_transp_utilities + prc_public_transp + ten_plus + order + 
            uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population + 
-           intl_passengers + domestic_passengers + cases_prc, prc_incarcerated +
+           intl_passengers + domestic_passengers + cases_prc + prc_incarcerated +
            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines, 
          data=df2)
-summary(lm2) # adj.r2 = 0.927
+summary(lm2) # adj.r2 = 0.788
 plot(lm2)
 
-# remove non-significant variables one by one
-lm2 <- lm(death_prc ~ household_size + density + empl_agriculture +
-            empl_professional + empl_social + empl_services + empl_manufacturing +
-            empl_retail + prc_public_transp + ten_plus + order + 
-            uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population + 
-            intl_passengers + domestic_passengers + cases_prc, prc_incarcerated +
-            immigrant + latino + aa + nh_weighted_health_score + nh_overall_rating +
-            nh_prc_occupied + nh_num_beds + nh_nurse_hours + nh_total_fines, 
+# remove non-significant variables one by one until all are p<0.1
+lm2 <- lm(death_prc ~ empl_services + prc_public_transp + order + 
+            uninsured + population + cases_prc + nh_num_beds + nh_total_fines, 
           data=df2)
-summary(lm2) # adj.r2 = 0.927
+summary(lm2) # adj.r2 = 0.7911 with 818 dof
 plot(lm2)
 # leverage problem eliminated
 
-
-step <- step(lm2, direction=c("backward"))
-summary(step)
-
-stepped <- lm(death_prc ~ household_size + density + empl_agriculture + empl_professional +
-                empl_social + empl_services + empl_manufacturing + empl_retail + prc_public_transp + 
-                ten_plus + order + uninsured + prc_fam_poverty + prc_obese + pop_65_plus + population +
-                intl_passengers + domestic_passengers + cases_prc, data=df2)
-summary(stepped)
-plot(stepped) # adj. r2 = 0.7813
-# more heteroskedastic that lm2?
-
-# reduce to only significant variables
-stepped <- lm(death_prc ~ density + empl_professional +
-                empl_services + prc_public_transp + 
-                order + pop_65_plus +
-                cases_prc, data=df2)
-summary(stepped) # adj. R2 == 0.7828
-plot(stepped)
-# at least no leverage issues (barely)
 
 
 # add interaction terms
@@ -111,7 +77,7 @@ coef(summary(step2))
 
 # because of the very large number of variables, iteratively dropped all with p-value >= 0.1 with each round
 # reduced to variables with p<0.1
-stepped2 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
+stepped <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
                  prc_incarcerated + nh_weighted_health_score + pop_65_plus + nh_overall_rating + ten_plus + household_size*cases_prc +
                  density*empl_services + density*prc_obese + prc_public_transp*empl_professional +
                  empl_professional*uninsured + nh_total_fines*empl_professional + immigrant*empl_social + latino*empl_social +
@@ -128,17 +94,17 @@ stepped2 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigra
                     empl_professional + uninsured + empl_social + empl_manufacturing + population + aa + order +
                     nh_prc_occupied + nh_nurse_hours), 
                data=df2)
-coef(summary(stepped2))
-summary(stepped2) # adj R2 on 635 dof = 0.9243->adj. R2 on 668 dof->0.9224, adj.R2 on 693 dof->0.9214, 
+coef(summary(stepped))
+summary(stepped) # adj R2 on 635 dof = 0.9243->adj. R2 on 668 dof->0.9224, adj.R2 on 693 dof->0.9214, 
                   # adj.R2 on 701 dof: 0.8883, adjR2 on 724 dof->0.8707, adj.R2 on 739 dof->0.8688. 
                   # adj.R2 on 753 dof->0.8688, adj.R2 on 762 def->0.866, adjR2 on 770 dof->0.8658
                   # adj.R2 on 771 dof->0.8655, adjR2 on 772 dof->0.8652
-plot(stepped2)
+plot(stepped)
 # leverage issue?
 
 
 #reduced further to all variables with p<0.05
-stepped3 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
+stepped2 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigrant + latino + nh_total_fines + domestic_passengers +
                  nh_weighted_health_score + pop_65_plus + ten_plus + household_size*cases_prc + density*empl_services + 
                  density*prc_obese + prc_public_transp*empl_professional + empl_professional*uninsured + 
                  nh_total_fines*empl_professional + immigrant*empl_social + latino*empl_social + nh_total_fines*empl_social +
@@ -155,9 +121,7 @@ stepped3 <- lm(death_prc ~ density + prc_fam_poverty + intl_passengers + immigra
                     empl_professional + uninsured + empl_social + empl_manufacturing + population + aa + order +
                     nh_prc_occupied + nh_nurse_hours + prc_incarcerated + nh_overall_rating + ten_plus), 
                data=df2)
-summary(stepped3)  # Adj.R2 on 776 dof->0.8641, AdjR2 with 777 dof->0.8636, AdjR2 with 780 dof->0.8629
-plot(stepped3)
+summary(stepped2)  # Adj.R2 on 776 dof->0.8641, AdjR2 with 777 dof->0.8636, AdjR2 with 780 dof->0.8629
+plot(stepped2)
 # fit isn't any better, and also has leverage issues; NOT PARSIMONIOUS and difficult to interpret
-
-
 
